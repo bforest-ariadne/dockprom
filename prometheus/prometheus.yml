@@ -18,6 +18,11 @@ scrape_configs:
     static_configs:
       - targets: ['nodeexporter:9100']
 
+  - job_name: 'linux'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['nodeexporter:9100']
+
   - job_name: 'cadvisor'
     scrape_interval: 5s
     static_configs:
@@ -34,6 +39,23 @@ scrape_configs:
     static_configs:
       - targets: ['pushgateway:9091']
 
+  - job_name: 'mongoexporter'
+    scrape_interval: 10s
+    honor_labels: true
+    static_configs:
+      - targets: ['mongoexporter:9216']
+      
+  - job_name: 'win-exporter'
+    scrape_interval: 5s
+    metrics_path: /metrics
+    static_configs:
+      - targets: 
+        - 'origin-rtx-1.local.vvoxlabs.com:9182'
+        - 'blade.local.vvoxlabs.com:9182'
+        - 'ORIGIN-RTX-PAS.local.vvoxlabs.com:9182'
+        - 'VVOX-PROD-2.local.vvoxlabs.com:9182'
+        - 'VVOX-PROD-1.local.vvoxlabs.com:9182'
+        - 'ORIGIN_JC_DESK.local.vvoxlabs.com:9182'
 
 alerting:
   alertmanagers:
@@ -51,3 +73,4 @@ alerting:
 #    scrape_interval: 10s
 #    static_configs:
 #      - targets: ['eventlog-proxy:5000', 'eventlog:5000']
+

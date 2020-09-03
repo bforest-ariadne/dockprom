@@ -1,12 +1,15 @@
-version: '2.1'
+version: '3'
 
 networks:
   monitor-net:
     driver: bridge
+  proxy_traefik:
+    external: true
 
 volumes:
     prometheus_data: {}
     grafana_data: {}
+    app_data: {}
 
 services:
 
@@ -28,8 +31,11 @@ services:
       - 9090
     networks:
       - monitor-net
+      - proxy_traefik
     labels:
-      org.label-schema.group: "monitoring"
+      - "traefik.http.services.prometheus-dockprom.loadbalancer.server.port=9090"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.local.vvoxlabs.com`)"
+      - "traefik.http.routers.prometheus.entrypoints=web"
 
   alertmanager:
     image: prom/alertmanager:v0.21.0
@@ -44,6 +50,7 @@ services:
       - 9093
     networks:
       - monitor-net
+      - proxy_traefik
     labels:
       org.label-schema.group: "monitoring"
 
@@ -64,6 +71,7 @@ services:
       - 9100
     networks:
       - monitor-net
+      - proxy_traefik
     labels:
       org.label-schema.group: "monitoring"
 
@@ -74,7 +82,7 @@ services:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
       - /sys:/sys:ro
-      - /var/lib/docker:/var/lib/docker:ro
+      - /volume1/@docker:/var/lib/docker:ro
       #- /cgroup:/cgroup:ro #doesn't work on MacOS only for Linux
     restart: unless-stopped
     expose:
@@ -95,12 +103,16 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
     restart: unless-stopped
-    expose:
-      - 3000
+    # expose:
+    #   - 3000
     networks:
       - monitor-net
+      - proxy_traefik
     labels:
-      org.label-schema.group: "monitoring"
+      - "traefik.http.services.grafana-dockprom.loadbalancer.server.port=3000"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.local.vvoxlabs.com`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      # org.label-schema.group: "monitoring"
 
   pushgateway:
     image: prom/pushgateway:v1.2.0
@@ -110,6 +122,7 @@ services:
       - 9091
     networks:
       - monitor-net
+      - proxy_traefik
     labels:
       org.label-schema.group: "monitoring"
 
@@ -129,5 +142,43 @@ services:
     restart: unless-stopped
     networks:
       - monitor-net
+      - proxy_traefik
     labels:
       org.label-schema.group: "monitoring"
+    
+  loki:
+    image: grafana/loki:1.4.1
+    container_name: loki
+    ports:
+      - 3100:3100
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitor-net
+      - proxy_traefik
+    labels:
+      - "traefik.http.services.loki-dockprom.loadbalancer.server.port=3100"
+      - "traefik.http.routers.loki-dockprom.rule=Host(`loki.local.vvoxlabs.com`)"
+      - "traefik.http.routers.loki-dockprom.entrypoints=web"
+  
+  promtail:
+    image: grafana/promtail:v1.3.0
+    container_name: promtail
+    volumes:
+      - app_data:/var/log
+    command: -config.file=/etc/promtail/docker-config.yaml
+    networks:
+      - monitor-net
+      - proxy_traefik
+
+  mongoexporter:
+    container_name: mongoexporter
+    image: bitnami/mongodb-exporter:latest
+    # expose:
+    #   - 9216
+    ports:
+      - "9216:9216"
+    environment:
+       - MONGODB_URI=mongodb://deadline10db.local.vvoxlabs.com
+    networks:
+      - monitor-net
+      - proxy_traefik
